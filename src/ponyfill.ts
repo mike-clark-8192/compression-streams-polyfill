@@ -1,7 +1,7 @@
 import {
   AsyncDeflate, Deflate, AsyncGzip, AsyncZlib, AsyncInflate, AsyncGunzip,
   AsyncUnzlib, AsyncFlateStreamHandler, FlateStreamHandler, Gzip, Zlib,
-  Gunzip, Unzlib, Inflate, AsyncFlateDrainHandler
+  Gunzip, Unzlib, Inflate, AsyncFlateDrainHandler, DeflateOptions
 } from 'fflate';
 import {
   CompressionFormat, CompressionStreamConstructor,
@@ -70,7 +70,7 @@ const compressors = hasWorker ? {
   'gzip': wrapSync(Gzip),
   'deflate': wrapSync(Zlib),
   'deflate-raw': wrapSync(Deflate)
-} ;
+};
 
 const decompressors = hasWorker ? {
   'gzip': AsyncGunzip,
@@ -80,9 +80,21 @@ const decompressors = hasWorker ? {
   'gzip': wrapSync(Gunzip),
   'deflate': wrapSync(Unzlib),
   'deflate-raw': wrapSync(Inflate)
-} ;
+};
 
-const makeMulti = (TransformStreamBase: typeof TransformStream, processors: Record<CompressionFormat, { new(): BaseStream; }>, name: string): CompressionStreamConstructor => {
+type TTransformStream = typeof TransformStream;
+type TProcessors = Record<CompressionFormat, { new(): BaseStream; }>;
+type Constructor<T> = new (...args: any[]) => T;
+
+function classExtendsClass<T>(base: Constructor<T>, sub: Function): sub is Constructor<T> {
+  return sub.prototype instanceof base;
+}
+
+const makeMulti = (TransformStreamBase: TTransformStream,
+  processors: TProcessors,
+  name: string,
+  options?: DeflateOptions
+  ): CompressionStreamConstructor => {
   class BaseCompressionStream extends TransformStreamBase<BufferSource, Uint8Array> {
     constructor(format: CompressionFormat) {
       if (!arguments.length) {
@@ -94,7 +106,9 @@ const makeMulti = (TransformStreamBase: typeof TransformStream, processors: Reco
         throw new TypeError(`Failed to construct '${name}': Unsupported compression format: '${format}'`)
       }
 
-      let compressor = new Processor();
+      const compressor = classExtendsClass(AsyncDeflate, Processor) ?
+        new Processor(options) : new Processor();
+
       let endCb: () => void;
 
       super({
@@ -144,8 +158,8 @@ const makeMulti = (TransformStreamBase: typeof TransformStream, processors: Reco
 
   return BaseCompressionStream;
 }
-export function makeCompressionStream(TransformStreamBase: typeof TransformStream): CompressionStreamConstructor {
-  return makeMulti(TransformStreamBase, compressors, 'CompressionStream');
+export function makeCompressionStream(TransformStreamBase: typeof TransformStream, options?: DeflateOptions): CompressionStreamConstructor {
+  return makeMulti(TransformStreamBase, compressors, 'CompressionStream', options);
 }
 
 export function makeDecompressionStream(TransformStreamBase: typeof TransformStream): DecompressionStreamConstructor {

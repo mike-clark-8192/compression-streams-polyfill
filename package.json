@@ -42,13 +42,17 @@
   "scripts": {
     "build": "tsc && tsc -p tsconfig.esm.json && node scripts/postbuild && npm run build:umd",
     "build:umd": "microbundle -i src/index.ts -o umd/index.js --no-pkg-main -f umd --external none --no-sourcemap",
+    "clean": "shx rm -rf esm lib ponyfill umd",
+    "watch": "chokidar \"./**\" -i \"/(\\.git|node_modules|lib|esm|ponyfill|umd)/.*/\" -c \"npm run clean && npm run build\" --initial",
     "prepack": "npm run build"
   },
   "dependencies": {
     "fflate": "^0.8.2"
   },
   "devDependencies": {
+    "chokidar-cli": "^3.0.0",
     "microbundle": "^0.15.1",
+    "shx": "^0.3.4",
     "typescript": "^5.3.3"
   }
 }
